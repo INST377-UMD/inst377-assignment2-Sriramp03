@@ -1,0 +1,138 @@
+<!-- File: dogs.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>INST377 - Doggos! 🐶</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: linear-gradient(135deg,#fde5b9 0%,#ffcc80 50%,#ffe0b2 100%); margin:0; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+    header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:#fde5b9;border-bottom:4px solid #cc3300;}
+    header h1{margin:0;font-size:1.8rem;color:#000;}
+    header nav ul{display:flex;gap:15px;margin:0;padding:0;list-style:none;}
+    header nav a{color:#000080;text-decoration:none;font-size:1rem;}header nav a:hover{text-decoration:underline;}
+    main{padding:20px;}
+    .carousel-container{display:flex;align-items:center;justify-content:center;gap:20px;margin:20px 0;}
+    .carousel-container img{max-width:600px;border-radius:5px;box-shadow:0 4px 8px rgba(0,0,0,0.2);}
+    .carousel-container button{background:none;border:none;font-size:2rem;cursor:pointer;color:#e60026;}
+    .breed-buttons{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:20px 0;}
+    .breed-buttons button{background:#e60026;color:#fff;border:none;border-radius:5px;padding:8px 12px;cursor:pointer;}
+    .breed-info{background:#fff;border:2px solid #000;padding:20px;width:80%;margin:20px auto;border-radius:5px;display:none;}
+    .audio-box{background:#006b3c;color:#fff;padding:20px;margin:20px auto;width:80%;border-radius:5px;}
+    .audio-box ul{margin-left:20px;}
+    .audio-buttons{display:flex;gap:20px;margin-top:15px;justify-content:center;}
+    .audio-buttons button{background:#fff;color:#000;border:none;border-radius:5px;padding:10px 20px;cursor:pointer;}
+  </style>
+  <!-- Load Annyang early -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/annyang/2.6.1/annyang.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>INST377 - Doggos! 🐶</h1>
+    <nav>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="stocks.html">Stocks</a></li>
+        <li><a href="dogs.html">Dogs</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main>
+    <h2>Doggos! 🐶</h2>
+    <div class="carousel-container">
+      <button id="prev" aria-label="Previous">&#8249;</button>
+      <img id="dog-img" src="" alt="Random Dog Picture">
+      <button id="next" aria-label="Next">&#8250;</button>
+    </div>
+    <div id="breeds" class="breed-buttons"></div>
+    <div id="breed-info" class="breed-info"></div>
+    <div class="audio-box">
+      <h2>Audio Navigation</h2>
+      <ul>
+        <li>Say "Load Dog Breed &lt;breed&gt;"</li>
+        <li>Say "Navigate to &lt;page&gt;"</li>
+        <li>Say "Change the color to &lt;color&gt;"</li>
+        <li>Say "Hello"</li>
+      </ul>
+      <div class="audio-buttons">
+        <button id="audio-on">Turn On Listening</button>
+        <button id="audio-off">Turn Off Listening</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Carousel
+      let images = [], idx = 0;
+      const imgEl = document.getElementById('dog-img');
+      document.getElementById('prev').onclick = () => {
+        if (!images.length) return;
+        idx = (idx - 1 + images.length) % images.length;
+        imgEl.src = images[idx];
+      };
+      document.getElementById('next').onclick = () => {
+        if (!images.length) return;
+        idx = (idx + 1) % images.length;
+        imgEl.src = images[idx];
+      };
+      fetch('https://dog.ceo/api/breeds/image/random/10')
+        .then(res => res.json())
+        .then(data => { images = data.message; imgEl.src = images[0]; })
+        .catch(console.error);
+
+      // Breed buttons
+      fetch('https://dog.ceo/api/breeds/list/all')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('breeds');
+          Object.keys(data.message).forEach(b => {
+            const btn = document.createElement('button');
+            btn.textContent = b.charAt(0).toUpperCase() + b.slice(1);
+            btn.onclick = () => loadBreedInfo(b);
+            container.appendChild(btn);
+          });
+        })
+        .catch(console.error);
+
+      // Breed info
+      function loadBreedInfo(breed) {
+        fetch(`https://api.thedogapi.com/v1/breeds/search?q=${breed}`)
+          .then(res => res.json())
+          .then(results => {
+            if (!results.length) return;
+            const b = results[0];
+            const [minLife, maxLife] = b.life_span.split('-').map(s => s.trim());
+            const info = document.getElementById('breed-info');
+            info.innerHTML = `
+              <h3>${b.name}</h3>
+              <p><strong>Description:</strong> ${b.temperament || 'N/A'}</p>
+              <p><strong>Min Life:</strong> ${minLife}</p>
+              <p><strong>Max Life:</strong> ${maxLife}</p>
+            `;
+            info.style.display = 'block';
+          })
+          .catch(console.error);
+      }
+
+      // Audio commands: enabled on user click
+      if (window.annyang) {
+        const commands = {
+          'hello': () => alert('Hello World'),
+          'change the color to *color': color => document.body.style.backgroundColor = color,
+          'navigate to *page': page => {
+            const p = page.toLowerCase();
+            if (['home','stocks','dogs'].includes(p)) {
+              window.location.href = p === 'home' ? 'index.html' : `${p}.html`;
+            }
+          },
+          'load dog breed *breed': breed => loadBreedInfo(breed.toLowerCase())
+        };
+        annyang.addCommands(commands);
+        // audio toggles
+        document.getElementById('audio-on').onclick = () => annyang.start({ autoRestart: true, continuous: true });
+        document.getElementById('audio-off').onclick = () => annyang.abort();
+      }
+    });
+  </script>
+</body>
+</html>
